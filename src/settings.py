@@ -14,7 +14,7 @@ class Settings():
         self.bullet_height = 15
         self.bullet_color = (0, 255, 150)
         #  Параметры прищельцев
-        self.fleet_drop_speed = 10
+        self.fleet_drop_speed = 15
         self.fleet_direction = 1
 
         #  Темп ускорения игры

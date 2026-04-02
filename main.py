@@ -23,11 +23,6 @@ class AlienInvasion:
                   
         pygame.init()
         self.settings = Settings()
-        self.shot = pygame.mixer.Sound('assets/sounds/shot.mp3')
-
-        #playsound(r"sounds\soundtrack1.mp3", block=False)
-
-        
 
         self.screen = pygame.display.set_mode(
             (self.settings.screen_width, self.settings.screen_height))
@@ -54,8 +49,6 @@ class AlienInvasion:
                 self._update()
             self._draw()
 
-            if self.stats.game_active == False:
-                self.aliens.empty()
 
             
     
@@ -89,6 +82,8 @@ class AlienInvasion:
             self.ship.center_ship()
             #  Указатель мыши скрывается
             pygame.mouse.set_visible(False)
+            #  Звук кнопик Play
+            playsound(r"assets\sounds\button1.mp3", block=False)
 
 
     def _check_keydown_events(self, event):
@@ -97,15 +92,21 @@ class AlienInvasion:
                     self.ship.moving_right = True
                 elif event.key == pygame.K_LEFT:
                     self.ship.moving_left = True
-                elif event.key == pygame.K_ESCAPE:
-                    if self.stats.game_active == False:
-                        sys.exit()
-                    else:
-                        self.stats.game_active = False
-                elif event.key == pygame.K_SPACE:                     
+                
+                if event.key == pygame.K_q:
+                    sys.exit()
+
+                if self.stats.game_active and event.key == pygame.K_SPACE:                     
                     self._fire_bullet()
-                elif event.key == pygame.K_RETURN:
+                if not self.stats.game_active and event.key == pygame.K_ESCAPE:
+                    playsound(r"assets\sounds\button1.mp3", block=False)
                     self.stats.game_active = True
+                    pygame.mouse.set_visible(False)
+    
+                elif self.stats.game_active and event.key == pygame.K_ESCAPE:
+                    playsound(r"assets\sounds\button1.mp3", block=False)
+                    self.stats.game_active = False
+                    pygame.mouse.set_visible(True)
     
     def _check_keyup_events(self, event):
                 """Реагирует на отпускание клавиш"""             
@@ -121,7 +122,6 @@ class AlienInvasion:
         else:
             playsound(r"assets\sounds\shot2.mp3", block=False)
              
-        #self.shot.play()
         """Создание нового снаряда и включение его в групу bullets"""
         new_bullet = Bullet(self)
         self.bullets.add(new_bullet) 
@@ -196,6 +196,7 @@ class AlienInvasion:
 
         #  Проверка коллизий "пришелец - корабль"
         if pygame.sprite.spritecollideany(self.ship, self.aliens):
+            playsound(r"assets\sounds\ship_hit1.mp3", block=False)
             self._ship_hit()
         #  Проверить, добрались ли пришельцы до нижнего края экрана
         self._check_aliens_bottom()
@@ -209,13 +210,17 @@ class AlienInvasion:
 
         collisions = pygame.sprite.groupcollide(self.bullets, self.aliens, True, True)
         if collisions:
-            var_sound_destruction = random.randrange(3)
+            var_sound_destruction = random.randrange(5)
             if var_sound_destruction == 1:             
                 playsound(r"assets\sounds\destruction1.mp3", block=False)
             elif var_sound_destruction == 2:
                 playsound(r"assets\sounds\destruction2.mp3", block=False)
-            else:
+            elif var_sound_destruction == 3:
                 playsound(r"assets\sounds\destruction3.mp3", block=False)
+            elif var_sound_destruction == 4:
+                playsound(r"assets\sounds\destruction4.mp3", block=False)
+            else:
+                playsound(r"assets\sounds\destruction5.mp3", block=False)
              
 
         if not self.aliens:
