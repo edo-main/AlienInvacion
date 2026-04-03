@@ -12,6 +12,7 @@ from src.bullet import Bullet
 from src.alien import Alien
 from src.game_stats import GameStats
 from src.button import Button
+from src.scoreboard import Scoreboard
 
 
 class AlienInvasion:
@@ -31,6 +32,7 @@ class AlienInvasion:
         
         self.stats = GameStats(self)
         self.ship = Ship(self)
+        self.scoreboard = Scoreboard(self)
         
         self.bullets = pygame.sprite.Group()
         self.aliens = pygame.sprite.Group()
@@ -38,8 +40,6 @@ class AlienInvasion:
         self._create_fleet()
 
         self.play_button = Button(self, "Play")
-
-
 
     def run_game(self):
         """Запуск основного цикла игры"""
@@ -49,9 +49,6 @@ class AlienInvasion:
                 self._update()
             self._draw()
 
-
-            
-    
     def _check_events(self):
         """Обрабатывает нажатия клавишь и мыши"""
         for event in pygame.event.get():
@@ -74,6 +71,7 @@ class AlienInvasion:
             #  Сброс игровой статистики
             self.stats.reset_stats()
             self.stats.game_active = True
+            self.scoreboard.prep_score()
             #  Очистка списков пришельцев и снарядов
             self.aliens.empty()
             self.bullets.empty()
@@ -134,7 +132,7 @@ class AlienInvasion:
         available_space_x = self.settings.screen_width - (2 * alien_width)
         number_aliens_x = available_space_x // (2 * alien_width)
         #  Вычисление кол-ва пришельцев по вертикали
-        available_space_y = self.settings.screen_height - self.ship.rect.height - (2 * alien_height)
+        available_space_y = self.settings.screen_height - (3 * alien_height)
         number_aliens_y = available_space_y // (2 * alien_height)
 
         #  Создаем флот
@@ -221,6 +219,9 @@ class AlienInvasion:
                 playsound(r"assets\sounds\destruction4.mp3", block=False)
             else:
                 playsound(r"assets\sounds\destruction5.mp3", block=False)
+            for aliens in collisions.values():
+                self.stats.score += self.settings.alien_points * len(aliens)
+            self.scoreboard.prep_score()
              
 
         if not self.aliens:
@@ -251,6 +252,8 @@ class AlienInvasion:
         # Кнопка Play отображается в том случае, если игра неактивна
         if not self.stats.game_active:
             self.play_button.draw_button()
+        #  Выводим счет очков
+        self.scoreboard.show_score()
         # Отображение последнего прорисованного экрана
         pygame.display.flip()
 
