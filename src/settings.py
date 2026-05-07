@@ -27,17 +27,26 @@ class Settings():
         """Инициализирует настройки, изменяющиейся в ходе игры."""
         self.ship_speed_factor = 0.5
         self.bullet_speed_factor = 1.0
-        self.alien_speed_factor = 0.2
+        self.x_min_speed = 0.02
+        self.x_max_speed = 0.1
+        self.y_min_speed = 0.02
+        self.y_max_speed = 0.05
+        self.aliens_number = 12
         #  Подсчет очков
         self.alien_points = 5
 
         #  fleet_direction = 1 обозначает движение вправо; а -1 - влево.
         self.fleet_direction = 1
 
+
     def increase_speed(self):
         """Увеличивает настройки скорости и стоимости пришельцев"""
         self.ship_speed_factor *= self.speedup_scale
         self.bullet_speed_factor *= self.speedup_scale
-        self.alien_speed_factor *= self.speedup_scale
+        self.x_min_speed *= self.speedup_scale
+        self.x_max_speed *= self.speedup_scale
+        self.y_min_speed *= self.speedup_scale
+        self.y_max_speed *= self.speedup_scale
+        self.aliens_number += 1
 
         self.alien_points = int(self.alien_points * self.score_scale)

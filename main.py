@@ -128,41 +128,16 @@ class AlienInvasion:
     
     def _create_fleet(self):
         alien = Alien(self)
-        alien_width, alien_height = alien.rect.size
-
-        #  Вычисление кол-ва пришельцев по горизонтали
-        available_space_x = self.settings.screen_width - (2 * alien_width)
-        number_aliens_x = available_space_x // (2 * alien_width)
-        #  Вычисление кол-ва пришельцев по вертикали
-        available_space_y = self.settings.screen_height - (3 * alien_height)
-        number_aliens_y = available_space_y // (2 * alien_height)
-
-        #  Создаем флот
-        for x_num in range(number_aliens_x):
-            for y_num in range(number_aliens_y):
-                self._create_alien(x_num, y_num)
-
-    def _create_alien(self, x_num, y_num):
-        alien = Alien(self)
-        alien_width, alien_height = alien.rect.size
-        alien.rect.x = alien_width + (2 * alien_width * x_num)
-        alien.rect.y = alien_height + (2 * alien_height * y_num)
-        alien.x = alien.rect.x
-        self.aliens.add(alien)
-
-                  
-    def _check_fleet_edges(self):
-        """Реагирует на достижение прищельцеп края экрана"""
-        for alien in self.aliens.sprites():
-            if alien.check_edges():
-                self._change_fleet_direction()
-                break
-
-    def _change_fleet_direction(self):
-        """Опускает весь флот и меняет направление движения"""
-        for alien in self.aliens.sprites():
-            alien.rect.y += self.settings.fleet_drop_speed
-        self.settings.fleet_direction *= -1    
+        for one_alien in range(self.settings.aliens_number):
+            alien = Alien(self)
+            y = random.randrange(-350, -20)
+            x = random.randrange(100, self.settings.screen_width - 100)
+            alien.rect.y = y
+            alien.rect.x = x
+            alien.x = alien.rect.x
+            alien.y = alien.rect.y
+            self.aliens.add(alien)
+  
 
     def _ship_hit(self):
         """Обрабатывает столкновение корабля с пришельцем"""
@@ -193,7 +168,7 @@ class AlienInvasion:
 
     def _update_aliens(self):
         self.aliens.update()
-        self._check_fleet_edges()
+        #self._check_fleet_edges()
 
         #  Проверка коллизий "пришелец - корабль"
         if pygame.sprite.spritecollideany(self.ship, self.aliens):
