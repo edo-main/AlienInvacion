@@ -15,8 +15,11 @@ class Scoreboard():
         self.stats = ai_game.stats
 
         #  Настройка шрифта для вывода счета
-        self.text_color = (30, 210, 120)
+        self.score_text_color = (30, 210, 120)
+        self.record_text_color = (100, 70, 250)
+        self.level_text_color = (240, 7, 50)
         self.font = pygame.font.SysFont(None, 48)
+        self.big_font = pygame.font.SysFont(None, 180)
         #  Подготовка исходного изображения
         self.prep_score()
         self.prep_high_score()
@@ -27,7 +30,7 @@ class Scoreboard():
         """Преобразует текущий счет в графическое изображение"""
         score_str = str(self.stats.score)
         self.score_image = self.font.render(score_str, True,
-                    self.text_color, self.settings.bg_color)
+                    self.score_text_color)
         
         #  Вывод счета в правой верхней части экрана
         self.score_rect = self.score_image.get_rect()
@@ -37,21 +40,22 @@ class Scoreboard():
     def show_score(self):
         """Выводит счет, рекорд, уровень и количество жизней на экран"""
         self.screen.blit(self.score_image, self.score_rect)
-        self.screen.blit(self.high_score_image, self.high_score_rect)
         self.screen.blit(self.level_image, self.level_rect)
         self.ships.draw(self.screen)
+    def show_record(self):
+        self.screen.blit(self.high_score_image, self.high_score_rect)
 
     def prep_high_score(self):
         """Преобразует рекордный счет в графическое изображение"""
         high_score = self.stats.high_score
         high_score_str = str(high_score)
-        self.high_score_image = self.font.render(high_score_str, True,
-                    self.text_color, self.settings.bg_color)
+        self.high_score_image = self.big_font.render(high_score_str, True,
+                    self.record_text_color)
         
         #  Рекорд выравнивается по центру сверху
         self.high_score_rect = self.high_score_image.get_rect()
         self.high_score_rect.centerx = self.screen_rect.centerx
-        self.high_score_rect.top = self.score_rect.top
+        self.high_score_rect.centery = self.screen_rect.centery
 
     def check_high_score(self):
         if self.stats.score > self.stats.high_score:
@@ -62,7 +66,7 @@ class Scoreboard():
         """Преобразует уровень в графическое изображение"""
         level_str = str(f"LeveL {self.stats.level}")
         self.level_image = self.font.render(level_str, True,
-                    (240, 7, 50), self.settings.bg_color)
+                    self.level_text_color)
         
         #  Уровень выводится под текущим счетом
         self.level_rect = self.level_image.get_rect()

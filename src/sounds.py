@@ -27,3 +27,6 @@ class Sounds:
 
     def ship_hit(self):
         playsound(r"assets\sounds\ship_hit1.mp3", block=False)
+
+    def button(self):
+        playsound(r"assets\sounds\button1.mp3", block=False)
