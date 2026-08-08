@@ -11,11 +11,20 @@ class Ship(Sprite):
         self.screen = ai_game.screen
         self.screen_rect = ai_game.screen.get_rect()
         self.settings = ai_game.settings
+        self.ai_game = ai_game
 
         #  Загружаем изображение корабля и получаем прямоугольник
-        self.image = pygame.image.load('assets/images/ship.bmp')
-        self.image = pygame.transform.scale(self.image, (120, 120))
-        self.rect = self.image.get_rect()
+        self.images = {}
+        self.suffixes = ['', '_shield']
+        self.directions = ['dir', 'right', 'left']
+
+        for direction in self.directions:
+            for suffix in self.suffixes:
+                key = f"{direction}{suffix}"
+                filename = f"assets/images/ship{key}pix.png"
+                self.images[key] = pygame.transform.scale(pygame.image.load(filename).convert_alpha(),(110, 110))
+
+        self.rect = self.images['dir'].get_rect()
         #  Каждый новый корабль появляется у нижнего края экрана
         self.rect.midbottom = self.screen_rect.midbottom
         #  Сохранение вещественной координаты центра корабля
@@ -39,9 +48,28 @@ class Ship(Sprite):
 
     def blitme(self):
         """Рисует корабль в текущей позиции"""
+        self.current_image_key = self.get_current_image_key()
+        self.image = self.images[self.current_image_key]
         self.screen.blit(self.image, self.rect)
 
     def center_ship(self):
         self.rect.midbottom = self.screen_rect.midbottom
         self.x = float(self.rect.x)
+
+    def get_current_image_key(self):
+        if self.moving_right:
+            direction = 'right'
+        elif self.moving_left:
+            direction = 'left'
+        else:
+            direction = 'dir'
+
+        if self.ai_game.shield_bonus_active:
+            return f"{direction}_shield"
+        else:
+            return direction
+
+    # def update_image(self):
+    #     self.current_image_key = self.get_current_image_key()
+    #     self.image = self.images[self.current_image_key]
 

@@ -11,11 +11,17 @@ from src.ship import Ship
 from src.bullet import Bullet
 from src.alien import Alien
 from src.alien2 import Alien2
+from src.alien3 import Alien3
+from src.alien3_bullet import Alien3Bullet
+from src.heart import Heart
+from src.rapid_bonus import RapidBonus
+from src.shield_bonus import ShieldBonus
 from src.game_stats import GameStats
 from src.button import Button
 from src.scoreboard import Scoreboard
 from src.settings_menu import SettingsMenu
 from src.sounds import Sounds
+from src.saver import Saver
 
 
 class AlienInvasion:
@@ -23,30 +29,38 @@ class AlienInvasion:
 
     def __init__(self):
         """Инициализирует игру и создает игровые ресурсы"""
-
-                  
         pygame.init()
         self.settings = Settings()
-        self.sounds = Sounds()
+        self.sounds = Sounds(self)
 
         self.screen = pygame.display.set_mode(
             (self.settings.screen_width, self.settings.screen_height))
+        self.screen_rect = self.screen.get_rect()
 
         pygame.display.set_caption("Alien Invasion")
 
-        self.menu_mode = 'main'
         
         self.stats = GameStats(self)
         self.ship = Ship(self)
         self.scoreboard = Scoreboard(self)
         self.settings_menu = SettingsMenu(self)
-        
+        self.saver = Saver(self)
+        self.heart = Heart(self)
+        self.rapid = RapidBonus(self)
+        self.shield = ShieldBonus(self)
+
         self.bullets = pygame.sprite.Group()
-        self.aliens = pygame.sprite.Group()
+        self.aliens1 = pygame.sprite.Group()
         self.aliens2 = pygame.sprite.Group()
+        self.aliens3 = pygame.sprite.Group()
+        self.aliens3_bullets = pygame.sprite.Group()
+        self.all_aliens = pygame.sprite.Group()
+        self.rapid_list = pygame.sprite.Group()
+        self.shield_list = pygame.sprite.Group()
 
         self._create_fleet()
         self.game_status = 'none'
+        self.menu_mode = 'main'
 
         self.play_button = Button(self, "NEW GAME", 
                                   self.settings.play_button_color,
@@ -66,15 +80,30 @@ class AlienInvasion:
                                      self.settings.continue_button_ypos,
                                      self.settings.basic_button_width + 60,
                                      self.settings.basic_button_height + 20)
-        
+        self.quit_button = Button(self, "QUIT", 
+                                             self.settings.quit_button_color,
+                                             self.settings.quit_button_xpos,
+                                             self.settings.quit_button_ypos,
+                                             self.settings.basic_button_width,
+                                             self.settings.basic_button_height)
+
+
+        self.rapid_bonus_active = False
+        self.shield_bonus_active = False
+        self.alien3_fire_time = 0
+
+
+        self.pause_time = 0
+        self.play_time = 0
+        self.all_pause_time = 0
 
     def run_game(self):
         """Запуск основного цикла игры"""
         while True:
             self._check_events()
+            self._draw()
             if self.stats.game_active:
                 self._update()
-            self._draw()
 
     def _check_events(self):
         """Обрабатывает нажатия клавишь и мыши"""
@@ -90,6 +119,7 @@ class AlienInvasion:
                 self._check_play_button(mouse_pos)
                 self._check_continue_button(mouse_pos)
                 self._check_settings_button(mouse_pos)
+                self._check_quit_button(mouse_pos)
                 self._check_return_button(mouse_pos)
         self._press_space()
 
@@ -99,16 +129,17 @@ class AlienInvasion:
         if play_button_clicked and not self.stats.game_active and self.game_status != 'losing':
             #  Сброс игровых настроек
             self.settings.initialize_dinamic_settings()
+            self.pause_time = 0
+            self.play_time = 0
+            self.all_pause_time = 0
             #  Сброс игровой статистики
             self.stats.reset_stats()
             self.stats.game_active = True
             self.scoreboard.prep_score()
             self.scoreboard.prep_level()
-            self.scoreboard.prep_ships()
+            self.scoreboard.prep_hearts()
             #  Очистка списков пришельцев и снарядов
-            self.aliens.empty()
-            self.aliens2.empty()
-            self.bullets.empty()
+            self._clear_game_objects()
             #  Создание нового флота и размещения корабля
             self._create_fleet()
             self.ship.center_ship()
@@ -123,9 +154,18 @@ class AlienInvasion:
         continue_button_clicked = self.continue_button.rect.collidepoint(mouse_pos)
         if continue_button_clicked and self.menu_mode == 'main' and self.game_status != 'losing':
             self.game_status = 'play'
+            self.play_time = pygame.time.get_ticks()
+            self.all_pause_time += self.play_time - self.pause_time
             self.sounds.button()
             self.stats.game_active = True
             pygame.mouse.set_visible(False)
+
+    def _check_quit_button(self, mouse_pos):
+        """Закрыть игру"""
+        quit_button_clicked = self.quit_button.rect.collidepoint(mouse_pos)
+        if quit_button_clicked and self.menu_mode == 'main' and self.game_status != 'losing':
+            self.sounds.button()
+            sys.exit()
 
     def _check_settings_button(self, mouse_pos):
         """Заходит в меню настроек"""
@@ -145,27 +185,25 @@ class AlienInvasion:
                 self.game_status = 'none'
                 self.sounds.button()
 
-
     def _check_keydown_events(self, event):
-                """Реагирует на нажатие клавиш"""   
-                 
+                """Реагирует на нажатие клавиш"""             
                 if event.key == pygame.K_RIGHT:
                     self.ship.moving_right = True
                 elif event.key == pygame.K_LEFT:
-                    self.ship.moving_left = True
-                
-                if event.key == pygame.K_q:
-                    sys.exit()                 
+                    self.ship.moving_left = True              
 
                 if event.key == pygame.K_ESCAPE:
                     if not self.stats.game_active and self.game_status == 'pause' and self.menu_mode == 'main':
                         self.game_status = 'play'
+                        self.play_time = pygame.time.get_ticks()
+                        self.all_pause_time += self.play_time - self.pause_time
                         self.sounds.button()
                         self.stats.game_active = True
                         pygame.mouse.set_visible(False)
                 
                     elif self.stats.game_active and self.game_status == 'play':
                         self.game_status = 'pause'
+                        self.pause_time = pygame.time.get_ticks()
                         self.sounds.button()
                         self.stats.game_active = False
                         pygame.mouse.set_visible(True)
@@ -194,175 +232,318 @@ class AlienInvasion:
         new_bullet = Bullet(self)
         self.bullets.add(new_bullet) 
         self.sounds.fire()  # Звуки пушки
+
+    def _create_rapid_bonus(self):
+        if len(self.rapid_list) < 1:
+            bonus = RapidBonus(self)
+            self.rapid_list.add(bonus)
+
+    def _create_shield_bonus(self):
+        if len(self.shield_list) < 1:
+            bonus = ShieldBonus(self)
+            self.shield_list.add(bonus)
+    
+    def _create_fleet_group(self, group_class, group_size, target_group):
+        for one in range(group_size):
+            unit = group_class(self)
+            y = random.randrange(-250, -20)
+            x = random.randrange(100, self.settings.screen_width - 100)
+            unit.rect.y = y
+            unit.rect.x = x
+            unit.x = unit.rect.x
+            unit.y = unit.rect.y
+            target_group.add(unit)
     
     def _create_fleet(self):
-        for one_alien in range(self.settings.aliens_number):
-            alien = Alien(self)
-            y = random.randrange(-250, -20)
-            x = random.randrange(100, self.settings.screen_width - 100)
-            alien.rect.y = y
-            alien.rect.x = x
-            alien.x = alien.rect.x
-            alien.y = alien.rect.y
-            self.aliens.add(alien)
-        for one_alien2 in range(self.settings.aliens2_number):
-            alien2 = Alien2(self)
-            y = random.randrange(-250, -20)
-            x = random.randrange(100, self.settings.screen_width - 100)
-            alien2.rect.y = y
-            alien2.rect.x = x
-            alien2.x = alien2.rect.x
-            alien2.y = alien2.rect.y
-            self.aliens2.add(alien2)
-  
+        self._create_fleet_group(Alien, self.settings.aliens1_number, self.aliens1)
+        self._create_fleet_group(Alien2, self.settings.aliens2_number, self.aliens2)
+        self._create_fleet_group(Alien3, self.settings.aliens3_number, self.aliens3)
+
+    def _clear_game_objects(self):
+        """Удаляет пришельцев и пули"""
+        self.aliens1.empty()
+        self.aliens2.empty()
+        self.aliens3.empty()
+        self.aliens3_bullets.empty()
+        self.bullets.empty()
+
+    def _respawn_ship(self):
+        """Пересоздает корабль игрока и пришельцев"""
+        self._clear_game_objects()
+        self.rapid_bonus_active = False
+        self.shield_bonus_active = False
+
+        self.scoreboard.prep_hearts()
+        #  Создание нового флота и размещение нового корабля игрока
+        self.ship.center_ship()
+        self._create_fleet()
+        sleep(0.5)
+
+    def _game_over(self):
+        """Завершает игру при потере всех жизней"""
+        self._clear_game_objects()
+        self.rapid_list.empty()
+        self.shield_list.empty()
+        self.rapid_bonus_active = False
+        self.shield_bonus_active = False
+
+        self.game_status = 'losing'
+        self.stats.game_active = False
+        self.saver.save_new_record()
+        pygame.mouse.set_visible(True) 
 
     def _ship_hit(self):
-        """Обрабатывает столкновение корабля с пришельцем"""
+        """Обрабатывает столкновения корабля с пришельцами"""
+        self.sounds.destruction()
         self.stats.ships_left -= 1
-
         if self.stats.ships_left > 0:
-            #  Уменьшение жизней
-            self.scoreboard.prep_ships()
-            self.sounds.destruction()
-            #  Очистка списков пришельцев и пуль
-            self.aliens.empty()
-            self.aliens2.empty()
-            self.bullets.empty()
-            #  Создание нового флота и размещение нового корабля игрока
-            self._create_fleet()
-            self.ship.center_ship()
-            #  Пауза
-            sleep(0.5)
+            self._respawn_ship()
         else: 
-            #  Когда жизни закончились                                  
-            self.stats.game_active = False
-            self.game_status = 'losing'
-            self.sounds.destruction()
-            self.aliens.empty()
-            self.aliens2.empty()
-            pygame.mouse.set_visible(True)  
+            self._game_over()
 
     def _check_aliens_bottom(self):
         screen_rect = self.screen.get_rect()
-        for alien in self.aliens.sprites():
-            if alien.rect.bottom >= screen_rect.bottom:
-                #  Происходит то же, что при столкновении с кораблем
+        self.all_aliens.empty()
+        self.all_aliens.add(self.aliens1, self.aliens2, self.aliens3)
+        for one in self.all_aliens.sprites():
+            if one.rect.bottom > screen_rect.bottom:
                 self._ship_hit()
                 break
-        for alien2 in self.aliens2.sprites():
-            if alien2.rect.bottom >= screen_rect.bottom:
-                #  Происходит то же, что при столкновении с кораблем
+
+    def _ship_collisions(self, type_group):
+        if pygame.sprite.spritecollideany(self.ship, type_group):
+            if not self.shield_bonus_active:
+                self.sounds.ship_hit()
                 self._ship_hit()
-                break
+
+    def _alien3_fire(self):
+        self.current_time = pygame.time.get_ticks()
+        if self.current_time > self.alien3_fire_time + self.settings.aliens3_fire_delay:
+            for alien in self.aliens3.sprites():
+                x = alien.rect.x + alien.rect.width // 2 - 6
+                y = alien.rect.bottom
+                if alien.rect.bottom > 0:
+                    bullet1 = Alien3Bullet(self, x - 25, y)
+                    bullet2 = Alien3Bullet(self, x + 25, y)
+                    self.aliens3_bullets.add(bullet1, bullet2)
+                    self.sounds.fire()
+            self.alien3_fire_time = self.current_time
+        for bullet in self.aliens3_bullets.copy():
+            if bullet.rect.top >= self.settings.screen_height:
+                self.aliens3_bullets.remove(bullet)
 
 
     def _update_aliens(self):
-        self.aliens.update()
+        self.aliens1.update()
         self.aliens2.update()
-        #  Проверка коллизий "пришелец - корабль"
-        if pygame.sprite.spritecollideany(self.ship, self.aliens):
-            self.sounds.ship_hit()
-            self._ship_hit()
-        if pygame.sprite.spritecollideany(self.ship, self.aliens2):
-            self.sounds.ship_hit()
-            self._ship_hit()
-        #  Проверить, добрались ли пришельцы до нижнего края экрана
+        self.aliens3.update()
+        # Проверка коллизий "пришелец - корабль"
+        self._ship_collisions(self.aliens1)
+        self._ship_collisions(self.aliens2)
+        self._ship_collisions(self.aliens3)
+        self._ship_collisions(self.aliens3_bullets)
+        # Проверить, добрались ли пришельцы до нижнего края экрана
         self._check_aliens_bottom()
+        # Стрельба противника
+        self._alien3_fire()
 
 
+    def _update_aliens3_bulets(self):
+        #if pygame.sprite.collideany(self.ship, )
+        self._ship_collisions(self.aliens3_bullets)
 
     def _update_bullets(self):
         for bullet in self.bullets.copy():
             if bullet.rect.bottom <= 0:
                 self.bullets.remove(bullet)
 
-        collisions = pygame.sprite.groupcollide(self.bullets, self.aliens, True, True)
-        collisions2 = pygame.sprite.groupcollide(self.bullets, self.aliens2, True, False)
+        collisions_alien1 = pygame.sprite.groupcollide(self.bullets, self.aliens1, True, True)
+        collisions_alien2 = pygame.sprite.groupcollide(self.bullets, self.aliens2, True, False)
+        collisions_alien3 = pygame.sprite.groupcollide(self.bullets, self.aliens3, True, False)
 
-        if collisions:
+        if collisions_alien1:
             self.sounds.destruction()  # Звуки разрушения aliens
 
-            for aliens in collisions.values():  # Начисляем очки
+            for aliens in collisions_alien1.values():  # Начисляем очки
                 self.stats.score += self.settings.alien_points * len(aliens)
             self.scoreboard.prep_score()
             self.scoreboard.check_high_score()
-
-        if collisions2:
+            if self.rapid.random_drop_rapid():
+                self._create_rapid_bonus()
+            if self.shield.random_drop_shield():
+                self._create_shield_bonus()
+        if collisions_alien2:
             self.sounds.destruction()  # Звуки разрушения aliens2
-
-            for bullet, aliens2 in collisions2.items():  # Уменьшаем ХП, уничтожаем alien2, начисляем очки
+            for bullet, aliens2 in collisions_alien2.items():  # Уменьшаем ХП, уничтожаем alien2, начисляем очки
                 for alien2 in aliens2:
                     alien2.hp -= self.settings.bullet_power
                     alien2.hp_width -= 30
                     if alien2.hp <= 0:
                         self.stats.score += self.settings.alien2_points * len(aliens2)           
-                        alien2.kill()           
+                        alien2.kill()
+                        if self.rapid.random_drop_rapid():
+                            self._create_rapid_bonus()
+                        if self.shield.random_drop_shield():
+                            self._create_shield_bonus()           
             self.scoreboard.prep_score()
             self.scoreboard.check_high_score()
-                         
 
-             
+        if collisions_alien3:
+            self.sounds.destruction()
+            for bullet, aliens3 in collisions_alien3.items():  # Уменьшаем ХП, уничтожаем alien2, начисляем очки
+                for alien3 in aliens3:
+                    alien3.hp -= self.settings.bullet_power
+                    alien3.hp_width -= 15
+                    if alien3.hp <= 0:
+                        self.stats.score += self.settings.alien3_points * len(aliens3)           
+                        alien3.kill()
+                        if self.rapid.random_drop_rapid():
+                            self._create_rapid_bonus()
+                        if self.shield.random_drop_shield():
+                            self._create_shield_bonus()           
+            self.scoreboard.prep_score()
+            self.scoreboard.check_high_score()
 
-        if not self.aliens and not self.aliens2:
+        if not self.aliens1 and not self.aliens2 and not self.aliens3:
             #  Уничтожение сущетсвующих снарядов и создание нового флота
             self.bullets.empty()
-            self._create_fleet()
             self.settings.increase_speed()
+            self._create_fleet()
             self.stats.level += 1
             self.scoreboard.prep_level()
 
+    def _get_rapid_bonus(self):
+        for rapid in self.rapid_list.copy():
+            self.rapid_list.remove(rapid)
+        if not self.rapid_bonus_active:
+            self.rapid_bonus_active = True
+            self.rapid_current_time = pygame.time.get_ticks() - self.all_pause_time
+            self.settings.fire_delay /= 1.5
+            self.settings.bullet_color = (240, 40, 60)
+            self.sounds.rapid(True)
+        elif self.rapid_bonus_active:
+            self.rapid_current_time = pygame.time.get_ticks() - self.all_pause_time
+            self.sounds.rapid(False)
+            self.sounds.rapid(True)
 
-    
+    def _get_shield_bonus(self):
+        for shield in self.shield_list.copy():
+            self.shield_list.remove(shield)
+        if not self.shield_bonus_active:
+            self.shield_bonus_active = True
+            self.shield_current_time = pygame.time.get_ticks() - self.all_pause_time
+            self.sounds.shield(True)
+
+        elif self.shield_bonus_active:
+            self.shield_current_time = pygame.time.get_ticks() - self.all_pause_time
+            self.sounds.shield(False)
+            self.sounds.shield(True)
+   
+    def _update_rapid(self):
+        self.rapid_list.update()
+        for rapid in self.rapid_list.copy():            
+            if rapid.rect.top > self.screen_rect.bottom:
+                self.rapid_list.remove(rapid)
+
+        if pygame.sprite.spritecollideany(self.ship, self.rapid_list):
+            self._get_rapid_bonus()
+
+        if self.rapid_bonus_active:
+            if pygame.time.get_ticks() - self.all_pause_time > self.rapid_current_time + self.settings.rapid_bonus_time:
+                self.settings.fire_delay *= 1.5
+                self.settings.bullet_color = (0, 255, 150)
+                self.rapid_bonus_active = False
+
+    def _update_shield(self):
+        self.shield_list.update()
+        for shield in self.shield_list.copy():            
+            if shield.rect.top > self.screen_rect.bottom:
+                self.shield_list.remove(shield)
+
+        if pygame.sprite.spritecollideany(self.ship, self.shield_list):
+            self._get_shield_bonus()
+
+        if self.shield_bonus_active:
+            #self.screen.blit(self.shield.image, self.shield.rect)
+            if pygame.time.get_ticks() - self.all_pause_time > self.shield_current_time + self.settings.shield_bonus_time:
+                self.shield_bonus_active = False
+
     def _update(self):
         self.ship.update()
         self.bullets.update()
+        self.aliens3_bullets.update()
         self._update_aliens()
         self._update_bullets()
+        self._update_rapid()
+        self._update_shield()
 
-
-    def _draw(self):
-        """Обновляет изображения на экране"""
-        #  Фон
-        #self.screen.fill(self.settings.bg_color)
+    def _draw_background(self):
         self.screen.blit(self.settings.bg_image, (0, self.settings.bgy + 0))
         self.screen.blit(self.settings.bg_image_next, (0, -(self.settings.screen_height) + self.settings.bgy))
-        #if self.settings.bgy < self.settings.screen_height:
         if self.stats.game_active:
             self.settings.bgy += self.settings.bg_speed
         if self.settings.bgy >= self.settings.screen_height:
             self.settings.bgy = 0
-        #  Отображаем активную игру
+
+    def _draw_active_game(self):
+        self.ship.blitme()
+
+        for bullet in self.bullets.sprites():
+            bullet.draw_bullet()
+
+        for bullet in self.aliens3_bullets.sprites():
+            bullet.draw_bullet()
+
+        self.aliens1.draw(self.screen)
+        self.aliens2.draw(self.screen)
+        self.aliens3.draw(self.screen)
+
+        for alien2 in self.aliens2.sprites():
+            alien2.draw_alien2()
+        for alien3 in self.aliens3.sprites():
+            alien3.draw_alien3()
+
+        self.rapid_list.draw(self.screen)
+        self.shield_list.draw(self.screen)
+
+        if self.shield_bonus_active:
+            self.scoreboard.show_shield_bonus()
+        if self.rapid_bonus_active:
+            self.scoreboard.show_rapid_bonus()
+
+        self.scoreboard.show_score()
+
+    def _draw_menu(self, show_continue):
+        """Рисует стартовое меню и меню с паузой
+        
+        Аргументы: 
+            show_continue: если True, добавляет кнопку "Продолжить" """
+        self.play_button.draw_button(self.settings.play_button_color)
+        self.setting_button.draw_button(self.settings.setting_button_color)
+        self.quit_button.draw_button(self.settings.quit_button_color)
+        self.saver.show_old_record()
+        if show_continue:
+            self.continue_button.draw_button(self.settings.continue_button_color)
+
+    def _draw(self):
+        self._draw_background()
         if self.stats.game_active:
-            #  Рисуем наш корабль
-            self.ship.blitme()
-            #  Рисуем пули
-            for bullet in self.bullets.sprites():
-                bullet.draw_bullet()
-            #  Рисуем пришельцев
-            self.aliens.draw(self.screen)
-            self.aliens2.draw(self.screen)
-            for alien2 in self.aliens2.sprites():
-                alien2.draw_alien2()
-            #  Выводим счет очков
-            self.scoreboard.show_score()
-        #  Отображение меню
+            self._draw_active_game()
         if not self.stats.game_active:
-            if self.menu_mode == 'main' and self.game_status == 'none':
-                self.play_button.draw_button(self.settings.play_button_color)
-                self.setting_button.draw_button(self.settings.setting_button_color)
-            elif self.menu_mode == 'main' and self.game_status == 'pause':
-                self.play_button.draw_button(self.settings.play_button_color)
-                self.setting_button.draw_button(self.settings.setting_button_color)
-                self.continue_button.draw_button(self.settings.continue_button_color)
+            if self.menu_mode == 'main':
+                if self.game_status == 'none':
+                    self._draw_menu(show_continue=False)
+                elif self.game_status == 'pause':
+                    self.sounds.shield(False)
+                    self.sounds.rapid(False)
+                    self._draw_active_game()
+                    self._draw_menu(show_continue=True)
+                elif self.game_status == 'losing':
+                    self.scoreboard.show_record()
+                    self.settings_menu.back_button.draw_button(self.settings.back_button_color)
             elif self.menu_mode == 'settings':
                 self.settings_menu.draw_settings_menu()
-            elif self.game_status == 'losing':
-                self.scoreboard.show_record()
-                self.settings_menu.back_button.draw_button(self.settings.back_button_color)
-
-
         pygame.display.flip()
-
 
 if __name__ == '__main__':
     # Создание экземпляра и запуск игры.
