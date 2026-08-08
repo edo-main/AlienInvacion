@@ -12,7 +12,7 @@ class RapidBonus(Sprite):
         self.screen_rect = self.screen.get_rect()
         self.settings = ai_game.settings
 
-        self.image = pygame.image.load('assets/images/rapid2.png').convert_alpha()
+        self.image = pygame.image.load('assets/images/rapidpix.png').convert_alpha()
         self.image = pygame.transform.scale(self.image, (70, 70))
         self.rect = self.image.get_rect()
 

@@ -10,7 +10,7 @@ class Heart(Sprite):
 
         self.screen = ai_game.screen
 
-        self.image = pygame.image.load('assets/images/heartpix32.png').convert_alpha()
+        self.image = pygame.image.load('assets/images/heartpix.png').convert_alpha()
         self.rect = self.image.get_rect()
 
 

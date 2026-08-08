@@ -35,7 +35,7 @@ class Scoreboard():
         self.rect_shield.x = 20
         self.rect_shield.y = 200
 
-        self.image_rapid = pygame.image.load('assets/images/rapid2.png').convert_alpha()
+        self.image_rapid = pygame.image.load('assets/images/rapidpix.png').convert_alpha()
         self.image_rapid = pygame.transform.scale(self.image_rapid, (70, 70))
         self.rect_rapid = self.image_rapid.get_rect()
         self.rect_rapid.x = 12
