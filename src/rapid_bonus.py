@@ -44,7 +44,7 @@ class RapidBonus(Sprite):
 
     def random_drop_rapid(self):
         get = random.randint(0, 20)
-        if get < 2:
+        if get < 1:
             return True
 
     # def draw_fast_fire(self):

@@ -44,6 +44,6 @@ class ShieldBonus(Sprite):
 
     def random_drop_shield(self):
         get = random.randint(0, 20)
-        if get < 2:
+        if get < 1:
             return True
 

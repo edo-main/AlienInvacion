@@ -22,6 +22,9 @@ from src.scoreboard import Scoreboard
 from src.settings_menu import SettingsMenu
 from src.sounds import Sounds
 from src.saver import Saver
+from src.explosion import Explosion
+from src.shield_eff import ShieldEff
+from src.fast_eff import FastEff
 
 
 class AlienInvasion:
@@ -47,7 +50,7 @@ class AlienInvasion:
         self.saver = Saver(self)
         self.heart = Heart(self)
         self.rapid = RapidBonus(self)
-        self.shield = ShieldBonus(self)
+        self.shield_bonus = ShieldBonus(self)
 
         self.bullets = pygame.sprite.Group()
         self.aliens1 = pygame.sprite.Group()
@@ -57,6 +60,9 @@ class AlienInvasion:
         self.all_aliens = pygame.sprite.Group()
         self.rapid_list = pygame.sprite.Group()
         self.shield_list = pygame.sprite.Group()
+        self.explosions = pygame.sprite.Group()
+        self.shield_eff = pygame.sprite.Group()
+        self.fast_eff = pygame.sprite.Group()
 
         self._create_fleet()
         self.game_status = 'none'
@@ -172,16 +178,18 @@ class AlienInvasion:
         settings_button_clicked = self.setting_button.rect.collidepoint(mouse_pos)
         if settings_button_clicked and not self.stats.game_active and self.game_status != 'losing':
             self.menu_mode = 'settings'
-            self.aliens.empty()
-            self.bullets.empty()
+            #self.aliens1.empty()
+            #self.bullets.empty()
             self.sounds.button()
 
     def _check_return_button(self, mouse_pos):
         """Возврат в главное меню"""
         back_button_clicked = self.settings_menu.back_button.rect.collidepoint(mouse_pos)
         if back_button_clicked:
-            if self.menu_mode == 'settings' or self.game_status == 'losing':
+            if self.menu_mode == 'settings':
                 self.menu_mode = 'main'
+                self.sounds.button()
+            elif self.game_status == 'losing':
                 self.game_status = 'none'
                 self.sounds.button()
 
@@ -277,7 +285,7 @@ class AlienInvasion:
         #  Создание нового флота и размещение нового корабля игрока
         self.ship.center_ship()
         self._create_fleet()
-        sleep(0.5)
+        sleep(0.1)
 
     def _game_over(self):
         """Завершает игру при потере всех жизней"""
@@ -313,6 +321,8 @@ class AlienInvasion:
     def _ship_collisions(self, type_group):
         if pygame.sprite.spritecollideany(self.ship, type_group):
             if not self.shield_bonus_active:
+                exp = Explosion(self, self.ship.rect.centerx, self.ship.rect.centery, random.randint(50, 80))            
+                self.explosions.add(exp)
                 self.sounds.ship_hit()
                 self._ship_hit()
 
@@ -363,6 +373,10 @@ class AlienInvasion:
 
         if collisions_alien1:
             self.sounds.destruction()  # Звуки разрушения aliens
+            for aliens in collisions_alien1.values():
+                for alien in aliens:
+                    exp = Explosion(self, alien.rect.centerx, alien.rect.centery, random.randint(20, 60))
+                    self.explosions.add(exp)
 
             for aliens in collisions_alien1.values():  # Начисляем очки
                 self.stats.score += self.settings.alien_points * len(aliens)
@@ -370,7 +384,7 @@ class AlienInvasion:
             self.scoreboard.check_high_score()
             if self.rapid.random_drop_rapid():
                 self._create_rapid_bonus()
-            if self.shield.random_drop_shield():
+            if self.shield_bonus.random_drop_shield():
                 self._create_shield_bonus()
         if collisions_alien2:
             self.sounds.destruction()  # Звуки разрушения aliens2
@@ -378,12 +392,14 @@ class AlienInvasion:
                 for alien2 in aliens2:
                     alien2.hp -= self.settings.bullet_power
                     alien2.hp_width -= 30
+                    exp = Explosion(self, alien2.rect.centerx, alien2.rect.centery, random.randint(30, 90))
+                    self.explosions.add(exp)
                     if alien2.hp <= 0:
                         self.stats.score += self.settings.alien2_points * len(aliens2)           
                         alien2.kill()
                         if self.rapid.random_drop_rapid():
                             self._create_rapid_bonus()
-                        if self.shield.random_drop_shield():
+                        if self.shield_bonus.random_drop_shield():
                             self._create_shield_bonus()           
             self.scoreboard.prep_score()
             self.scoreboard.check_high_score()
@@ -394,12 +410,15 @@ class AlienInvasion:
                 for alien3 in aliens3:
                     alien3.hp -= self.settings.bullet_power
                     alien3.hp_width -= 15
+                    exp = Explosion(self, alien3.rect.centerx, alien3.rect.centery, random.randint(40, 120))
+
+                    self.explosions.add(exp)
                     if alien3.hp <= 0:
                         self.stats.score += self.settings.alien3_points * len(aliens3)           
                         alien3.kill()
                         if self.rapid.random_drop_rapid():
                             self._create_rapid_bonus()
-                        if self.shield.random_drop_shield():
+                        if self.shield_bonus.random_drop_shield():
                             self._create_shield_bonus()           
             self.scoreboard.prep_score()
             self.scoreboard.check_high_score()
@@ -421,10 +440,14 @@ class AlienInvasion:
             self.settings.fire_delay /= 1.5
             self.settings.bullet_color = (240, 40, 60)
             self.sounds.rapid(True)
+            fast_eff = FastEff(self, self.ship.rect.centerx, self.ship.rect.top)
+            self.fast_eff.add(fast_eff)
         elif self.rapid_bonus_active:
             self.rapid_current_time = pygame.time.get_ticks() - self.all_pause_time
             self.sounds.rapid(False)
             self.sounds.rapid(True)
+            fast_eff = FastEff(self, self.ship.rect.centerx, self.ship.rect.top)
+            self.fast_eff.add(fast_eff)
 
     def _get_shield_bonus(self):
         for shield in self.shield_list.copy():
@@ -433,11 +456,15 @@ class AlienInvasion:
             self.shield_bonus_active = True
             self.shield_current_time = pygame.time.get_ticks() - self.all_pause_time
             self.sounds.shield(True)
+            shield_eff = ShieldEff(self, self.ship.rect.centerx, self.ship.rect.top)
+            self.shield_eff.add(shield_eff)
 
         elif self.shield_bonus_active:
             self.shield_current_time = pygame.time.get_ticks() - self.all_pause_time
             self.sounds.shield(False)
             self.sounds.shield(True)
+            shield_eff = ShieldEff(self, self.ship.rect.centerx, self.ship.rect.top)
+            self.shield_eff.add(shield_eff)
    
     def _update_rapid(self):
         self.rapid_list.update()
@@ -472,6 +499,9 @@ class AlienInvasion:
         self.ship.update()
         self.bullets.update()
         self.aliens3_bullets.update()
+        self.explosions.update()
+        self.shield_eff.update()
+        self.fast_eff.update()
         self._update_aliens()
         self._update_bullets()
         self._update_rapid()
@@ -497,6 +527,9 @@ class AlienInvasion:
         self.aliens1.draw(self.screen)
         self.aliens2.draw(self.screen)
         self.aliens3.draw(self.screen)
+        self.explosions.draw(self.screen)
+        self.shield_eff.draw(self.screen)
+        self.fast_eff.draw(self.screen)
 
         for alien2 in self.aliens2.sprites():
             alien2.draw_alien2()
@@ -541,7 +574,7 @@ class AlienInvasion:
                 elif self.game_status == 'losing':
                     self.scoreboard.show_record()
                     self.settings_menu.back_button.draw_button(self.settings.back_button_color)
-            elif self.menu_mode == 'settings':
+            if self.menu_mode == 'settings':
                 self.settings_menu.draw_settings_menu()
         pygame.display.flip()
 

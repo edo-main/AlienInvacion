@@ -21,7 +21,7 @@ class Ship(Sprite):
         for direction in self.directions:
             for suffix in self.suffixes:
                 key = f"{direction}{suffix}"
-                filename = f"assets/images/ship{key}pix.png"
+                filename = f"assets/images/ship{key}.png"
                 self.images[key] = pygame.transform.scale(pygame.image.load(filename).convert_alpha(),(110, 110))
 
         self.rect = self.images['dir'].get_rect()
